@@ -1,171 +1,419 @@
 import { useCallback, useRef, useState } from 'react';
-import { FileText, Upload, Type, X, FileCheck2, Loader2 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import {
+  Camera,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  Type,
+  Upload,
+  X,
+} from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
-import { uploadReportFile } from '@/lib/ai';
 
 type Mode = 'idle' | 'text';
 
 interface UploadCardProps {
   onAnalyze: (text: string) => void;
+  onAnalyzeImage: (image: string) => void;
   analyzing: boolean;
 }
 
-export function UploadCard({ onAnalyze, analyzing }: UploadCardProps) {
-  const { user } = useAuth();
+const MAX_IMAGE_DIMENSION = 1800;
+const IMAGE_QUALITY = 0.82;
+const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
+
+export function UploadCard({
+  onAnalyze,
+  onAnalyzeImage,
+  analyzing,
+}: UploadCardProps) {
   const toast = useToast();
+
   const [mode, setMode] = useState<Mode>('idle');
   const [text, setText] = useState('');
   const [dragOver, setDragOver] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [extractedText, setExtractedText] = useState<string | null>(null);
+  const [processingImage, setProcessingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setMode('idle');
     setText('');
-    setFileName(null);
-    setExtractedText(null);
-    setUploadProgress(0);
-  };
+    setImagePreview(null);
+    setSelectedImage(null);
+    setProcessingImage(false);
 
-  const handleFile = useCallback(async (file: File) => {
-    if (!user) return;
-    const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'text/plain'];
-    if (!allowed.includes(file.type) && !file.name.match(/\.(pdf|png|jpe?g|webp|txt)$/i)) {
-      toast('Please upload a PDF, image, or text file.', 'error');
-      return;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
 
-    setUploading(true);
-    setUploadProgress(10);
-    setFileName(file.name);
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+  };
 
-    try {
-      // Simulate progress while uploading to storage
-      const progressInterval = setInterval(() => {
-        setUploadProgress((p) => Math.min(p + 15, 85));
-      }, 200);
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
 
-      await uploadReportFile(file, user.id);
-      clearInterval(progressInterval);
-      setUploadProgress(100);
+      reader.onerror = () => {
+        reject(new Error('Could not read the selected image.'));
+      };
 
-      // Extract text: for text files, read directly. For PDFs/images, read as text placeholder.
-      let extracted = '';
-      if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-        extracted = await file.text();
-      } else {
-        // For PDFs and images we can't extract text client-side without heavy deps.
-        // We store the file and ask the user to paste the relevant text.
-        toast('File uploaded. Please paste the text from your report below to analyze it.', 'info');
-        setMode('text');
-        setUploading(false);
+      reader.onload = () => {
+        const source = reader.result;
+
+        if (typeof source !== 'string') {
+          reject(new Error('Could not read the selected image.'));
+          return;
+        }
+
+        const img = new Image();
+
+        img.onerror = () => {
+          reject(new Error('The selected file is not a valid image.'));
+        };
+
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (
+            width > MAX_IMAGE_DIMENSION ||
+            height > MAX_IMAGE_DIMENSION
+          ) {
+            const scale = Math.min(
+              MAX_IMAGE_DIMENSION / width,
+              MAX_IMAGE_DIMENSION / height
+            );
+
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const context = canvas.getContext('2d');
+
+          if (!context) {
+            reject(new Error('Your browser could not process the image.'));
+            return;
+          }
+
+          context.drawImage(img, 0, 0, width, height);
+
+          const compressed = canvas.toDataURL(
+            'image/jpeg',
+            IMAGE_QUALITY
+          );
+
+          if (compressed.length > MAX_IMAGE_SIZE) {
+            const smaller = canvas.toDataURL('image/jpeg', 0.65);
+
+            if (smaller.length > MAX_IMAGE_SIZE) {
+              reject(
+                new Error(
+                  'This image is still too large. Please take a clearer photo from a little farther away.'
+                )
+              );
+              return;
+            }
+
+            resolve(smaller);
+            return;
+          }
+
+          resolve(compressed);
+        };
+
+        img.src = source;
+      };
+
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImage = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        toast(
+          'Please select an image of your medical report.',
+          'error'
+        );
         return;
       }
 
-      if (extracted.trim()) {
-        setExtractedText(extracted);
-        setText(extracted);
-        setMode('text');
-        toast('File uploaded and text extracted.', 'success');
-      } else {
-        toast('The file appears to be empty. Please paste the text manually.', 'info');
-        setMode('text');
-      }
-    } catch (e) {
-      toast((e as Error).message, 'error');
-      setFileName(null);
-    } finally {
-      setUploading(false);
-    }
-  }, [user, toast]);
+      setProcessingImage(true);
 
-  const handleDrop = (e: React.DragEvent) => {
+      try {
+        const compressed = await compressImage(file);
+
+        setSelectedImage(compressed);
+        setImagePreview(compressed);
+        setMode('idle');
+
+        toast(
+          'Image ready. Check that the report is clear before analyzing.',
+          'success'
+        );
+      } catch (e) {
+        toast(
+          e instanceof Error
+            ? e.message
+            : 'Could not process the image.',
+          'error'
+        );
+      } finally {
+        setProcessingImage(false);
+      }
+    },
+    [toast]
+  );
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
+
     const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
+
+    if (file) {
+      handleImage(file);
+    }
   };
 
-  const handleSubmit = () => {
-    const finalText = text.trim() || extractedText?.trim();
+  const handleAnalyzeImage = () => {
+    if (!selectedImage) {
+      toast('Please select an image first.', 'error');
+      return;
+    }
+
+    onAnalyzeImage(selectedImage);
+  };
+
+  const handleSubmitText = () => {
+    const finalText = text.trim();
+
     if (!finalText) {
       toast('Please enter some text to analyze.', 'error');
       return;
     }
+
     if (finalText.length < 20) {
-      toast('Please enter at least a few sentences for a meaningful analysis.', 'error');
+      toast(
+        'Please enter at least a few sentences for a meaningful analysis.',
+        'error'
+      );
       return;
     }
+
     onAnalyze(finalText);
   };
 
   return (
-    <div className="card p-6 sm:p-8 animate-fade-in-up">
+    <div className="card p-5 sm:p-6">
       {/* Mode tabs */}
-      <div className="flex gap-2 mb-6 p-1 bg-slate-100 rounded-xl w-fit">
+      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl mb-5">
         <button
+          type="button"
           onClick={() => setMode('idle')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${mode === 'idle' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500'}`}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            mode === 'idle'
+              ? 'bg-white text-primary-700 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
         >
-          <Upload className="w-4 h-4" /> Upload
+          <ImageIcon className="w-4 h-4" />
+          Image
         </button>
+
         <button
+          type="button"
           onClick={() => setMode('text')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${mode === 'text' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500'}`}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+            mode === 'text'
+              ? 'bg-white text-primary-700 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
         >
-          <Type className="w-4 h-4" /> Paste Text
+          <Type className="w-4 h-4" />
+          Paste Text
         </button>
       </div>
 
-      {mode === 'idle' && !uploading && !fileName && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-10 sm:p-14 text-center cursor-pointer transition-all ${dragOver ? 'border-primary-400 bg-primary-50 scale-[1.01]' : 'border-slate-200 hover:border-primary-300 hover:bg-slate-50'}`}
-        >
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-100 to-teal-100 flex items-center justify-center mx-auto mb-4">
-            <Upload className="w-8 h-8 text-primary-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-800 mb-1">Drop your medical report here</h3>
-          <p className="text-sm text-slate-500 mb-4">PDF, PNG, JPG, or text file</p>
-          <button className="btn-primary">Browse files</button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,application/pdf,image/*,text/plain"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-          />
-        </div>
-      )}
+      {mode === 'idle' && (
+        <>
+          {!imagePreview && !processingImage && (
+            <div className="space-y-4">
+              {/* Drag and drop */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-2xl p-8 sm:p-10 text-center cursor-pointer transition-all ${
+                  dragOver
+                    ? 'border-primary-400 bg-primary-50 scale-[1.01]'
+                    : 'border-slate-200 hover:border-primary-300 hover:bg-slate-50'
+                }`}
+              >
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-100 to-teal-100 flex items-center justify-center mx-auto mb-4">
+                  <Upload className="w-8 h-8 text-primary-600" />
+                </div>
 
-      {uploading && (
-        <div className="border-2 border-dashed rounded-2xl p-10 text-center">
-          <Loader2 className="w-10 h-10 text-primary-500 animate-spin mx-auto mb-4" />
-          <p className="text-sm font-medium text-slate-700 mb-3">Uploading {fileName}…</p>
-          <div className="max-w-xs mx-auto bg-slate-100 rounded-full h-2 overflow-hidden">
-            <div className="bg-gradient-to-r from-primary-500 to-teal-500 h-full rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
-          </div>
-          <p className="text-xs text-slate-400 mt-2">{uploadProgress}%</p>
-        </div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-1">
+                  Upload your medical report
+                </h3>
+
+                <p className="text-sm text-slate-500 mb-4">
+                  Use a clear photo or image of your report
+                </p>
+
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  <Upload className="w-4 h-4" />
+                  Choose Image
+                </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+
+                    if (file) {
+                      handleImage(file);
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Camera button */}
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 border border-slate-200 hover:border-primary-300 hover:bg-primary-50 text-slate-700 font-medium px-4 py-3 rounded-xl transition"
+              >
+                <Camera className="w-5 h-5" />
+                Take a photo of your report
+              </button>
+
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+
+                  if (file) {
+                    handleImage(file);
+                  }
+                }}
+              />
+
+              <p className="text-xs text-center text-slate-400">
+                Make sure the entire report is visible, well-lit, and
+                readable.
+              </p>
+            </div>
+          )}
+
+          {processingImage && (
+            <div className="border-2 border-dashed rounded-2xl p-10 text-center">
+              <Loader2 className="w-10 h-10 text-primary-500 animate-spin mx-auto mb-4" />
+
+              <p className="text-sm font-medium text-slate-700">
+                Preparing your image…
+              </p>
+
+              <p className="text-xs text-slate-400 mt-1">
+                The image is being compressed on your device.
+              </p>
+            </div>
+          )}
+
+          {imagePreview && !processingImage && (
+            <div className="animate-fade-in">
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                <img
+                  src={imagePreview}
+                  alt="Medical report preview"
+                  className="w-full max-h-[500px] object-contain"
+                />
+
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 shadow-sm flex items-center justify-center text-slate-600 hover:text-red-600 transition"
+                  aria-label="Remove image"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-xl bg-blue-50 border border-blue-100 p-3">
+                <p className="text-xs text-blue-700">
+                  <strong>Image analysis:</strong> If image analysis fails, please use the
+<strong> Paste Text</strong> option and paste the contents
+of your medical report instead.
+                </p>
+              </div>
+
+              <div className="flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={handleAnalyzeImage}
+                  disabled={analyzing}
+                  className="btn-primary flex-1"
+                >
+                  {analyzing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ImageIcon className="w-4 h-4" />
+                  )}
+
+                  {analyzing
+                    ? 'Analyzing…'
+                    : 'Analyze Report Image'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={reset}
+                  disabled={analyzing}
+                  className="btn-ghost"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {mode === 'text' && (
         <div className="animate-fade-in">
-          {fileName && !uploading && (
-            <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700">
-              <FileCheck2 className="w-4 h-4" />
-              <span className="flex-1 truncate">{fileName} uploaded</span>
-              <button onClick={() => setFileName(null)} className="text-emerald-600 hover:text-emerald-800"><X className="w-4 h-4" /></button>
-            </div>
-          )}
-          <label className="label">Paste your medical report text</label>
+          <label className="label">
+            Paste your medical report text
+          </label>
+
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -173,25 +421,38 @@ export function UploadCard({ onAnalyze, analyzing }: UploadCardProps) {
             placeholder="Paste the text of your medical report here. For example: lab results, discharge summaries, radiology reports, etc."
             className="input resize-y font-mono text-xs leading-relaxed"
           />
-          <p className="text-xs text-slate-400 mt-1.5">{text.length} characters</p>
-          <div className="flex gap-3 mt-4">
-            <button onClick={handleSubmit} disabled={analyzing} className="btn-primary flex-1">
-              {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-              {analyzing ? 'Analyzing…' : 'Analyze Report'}
-            </button>
-            <button onClick={reset} className="btn-ghost">Clear</button>
-          </div>
-        </div>
-      )}
 
-      {mode === 'idle' && !uploading && fileName && (
-        <div className="animate-fade-in">
-          <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700">
-            <FileCheck2 className="w-4 h-4" />
-            <span className="flex-1 truncate">{fileName} uploaded</span>
+          <p className="text-xs text-slate-400 mt-1.5">
+            {text.length} characters
+          </p>
+
+          <div className="flex gap-3 mt-4">
+            <button
+              type="button"
+              onClick={handleSubmitText}
+              disabled={analyzing}
+              className="btn-primary flex-1"
+            >
+              {analyzing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+
+              {analyzing
+                ? 'Analyzing…'
+                : 'Analyze Report'}
+            </button>
+
+            <button
+              type="button"
+              onClick={reset}
+              disabled={analyzing}
+              className="btn-ghost"
+            >
+              Clear
+            </button>
           </div>
-          <p className="text-sm text-slate-600 mb-3">Now paste the text content from your report to analyze it.</p>
-          <button onClick={() => setMode('text')} className="btn-secondary"><Type className="w-4 h-4" /> Paste text to analyze</button>
         </div>
       )}
     </div>
