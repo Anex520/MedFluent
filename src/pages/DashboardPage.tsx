@@ -135,9 +135,9 @@ export function DashboardPage() {
     profile?.full_name?.split(' ')[0] || 'there';
 
   return (
-    <div>
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Welcome card */}
-      <div className="bg-gradient-to-r from-primary-600 to-teal-600 rounded-2xl p-6 sm:p-8 mb-8 text-white">
+      <div className="bg-primary-600 rounded-2xl p-6 sm:p-8 mb-8 text-white">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-primary-100 text-sm font-medium mb-1">
@@ -156,7 +156,7 @@ export function DashboardPage() {
 
           <button
             onClick={() => navigate('/history')}
-            className="bg-white/15 hover:bg-white/25 text-white font-medium px-4 py-2.5 rounded-xl backdrop-blur-sm transition flex items-center gap-2 self-start"
+            className="bg-white text-primary-700 hover:bg-primary-50 font-medium px-4 py-2.5 rounded-xl transition flex items-center gap-2 self-start"
           >
             <Clock className="w-4 h-4" />
             View history

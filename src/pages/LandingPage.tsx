@@ -45,10 +45,9 @@ export function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-50 via-white to-teal-50" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary-200/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-teal-200/30 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
+      <section className="relative overflow-hidden bg-white">
+  <div className="absolute top-0 right-0 w-72 h-72 bg-primary-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+  <div className="absolute bottom-0 left-0 w-72 h-72 bg-slate-50 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
           <div className="text-center max-w-3xl mx-auto animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-primary-100 text-sm font-medium text-primary-700 mb-6 shadow-sm">
@@ -56,7 +55,9 @@ export function LandingPage() {
               AI-powered health literacy
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight mb-6">
-              Understand your medical reports in <span className="bg-gradient-to-r from-primary-600 to-teal-600 bg-clip-text text-transparent">plain language</span>
+              Understand your medical reports in <span className="text-primary-600">
+  plain language
+</span>
             </h1>
             <p className="text-lg text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
               MedFluent turns complex lab results and medical documents into clear explanations, helps you learn the
@@ -84,7 +85,7 @@ export function LandingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {FEATURES.map((f, i) => (
             <div key={i} className="card p-6 hover:shadow-soft-lg hover:-translate-y-0.5 transition-all duration-300 animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-50 to-teal-50 flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center mb-4">
                 <f.icon className="w-6 h-6 text-primary-600" />
               </div>
               <h3 className="text-lg font-semibold text-slate-800 mb-2">{f.title}</h3>
@@ -105,7 +106,7 @@ export function LandingPage() {
             {STEPS.map((step, i) => (
               <div key={i} className="relative text-center animate-fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
                 <div className="relative inline-flex">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-500 to-teal-500 flex items-center justify-center shadow-lg shadow-primary-200 mb-5">
+                  <div className="w-20 h-20 rounded-2xl bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-200 mb-5">
                     <step.icon className="w-9 h-9 text-white" />
                   </div>
                   <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-white border-2 border-primary-100 flex items-center justify-center text-sm font-bold text-primary-600">{i + 1}</span>
@@ -120,9 +121,7 @@ export function LandingPage() {
 
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-600 to-teal-600 p-10 sm:p-16 text-center">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+        <div className="relative overflow-hidden rounded-2xl bg-primary-600 p-10 sm:p-16 text-center">
           <div className="relative">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Ready to understand your health?</h2>
             <p className="text-primary-100 text-lg mb-8 max-w-xl mx-auto">Create a free account and analyze your first medical report in minutes.</p>

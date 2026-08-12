@@ -27,7 +27,7 @@ export function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-primary-50">
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md animate-fade-in-up">
           <div className="text-center mb-8">
