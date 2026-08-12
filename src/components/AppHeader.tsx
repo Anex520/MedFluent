@@ -7,7 +7,7 @@ import { useToast } from '@/context/ToastContext';
 export function Logo({ to = '/' }: { to?: string }) {
   return (
     <Link to={to} className="flex items-center gap-2 group">
-      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-teal-500 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+      <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
         <HeartPulse className="w-5 h-5 text-white" />
       </div>
       <span className="text-xl font-bold text-slate-800">

@@ -42,7 +42,7 @@ export function ProfilePage() {
 
         <div className="card p-6 sm:p-8 mb-6">
           <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-100">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-teal-500 flex items-center justify-center text-white text-xl font-bold">
+            <div className="w-16 h-16 rounded-2xl bg-primary-600 flex items-center justify-center text-white text-xl font-bold">
               {(fullName || user?.email || '?').charAt(0).toUpperCase()}
             </div>
             <div>

@@ -264,7 +264,7 @@ export function UploadCard({
                     : 'border-slate-200 hover:border-primary-300 hover:bg-slate-50'
                 }`}
               >
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-100 to-teal-100 flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4">
                   <Upload className="w-8 h-8 text-primary-600" />
                 </div>
 
