@@ -182,7 +182,7 @@ Deno.serve(async (req: Request) => {
      */
     const model =
       Deno.env.get("AI_IMAGE_MODEL") ||
-      "google/gemini-2.0-flash-001";
+       "openrouter/free";
 
     const languageInstruction =
       language &&

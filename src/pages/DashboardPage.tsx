@@ -20,6 +20,7 @@ import {
   analyzeReport,
   analyzeImage,
   fetchReports,
+  fetchReport,
   saveReport,
 } from '@/lib/ai';
 
@@ -78,8 +79,7 @@ export function DashboardPage() {
     }
   };
 
-  // Image report analysis
-  const handleAnalyzeImage = async (image: string) => {
+    const handleAnalyzeImage = async (image: string) => {
     setAnalyzing(true);
     setAnalysis(null);
 
@@ -94,15 +94,34 @@ export function DashboardPage() {
         '[Medical report image — original image not stored]'
       );
 
-      const result = await analyzeImage({
-        image,
-        language: profile?.preferred_language,
-        reportId: report.id,
-      });
+      try {
+        const result = await analyzeImage({
+          image,
+          language: profile?.preferred_language,
+          reportId: report.id,
+        });
 
-      setAnalysis(result);
+        setAnalysis(result);
+        toast('Image analysis complete!', 'success');
+      } catch (analysisError) {
+        /*
+         * The Edge Function may have completed and saved the
+         * analysis even if the response was lost by the network.
+         *
+         * Give the backend a moment to finish, then check the
+         * report directly for a saved AI response.
+         */
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      toast('Image analysis complete!', 'success');
+        const savedReport = await fetchReport(report.id);
+
+        if (savedReport?.ai_response) {
+          setAnalysis(savedReport.ai_response);
+          toast('Image analysis complete!', 'success');
+        } else {
+          throw analysisError;
+        }
+      }
 
       await loadReports();
     } catch (e) {
@@ -111,7 +130,6 @@ export function DashboardPage() {
       setAnalyzing(false);
     }
   };
-
   const stats = {
     total: reports.length,
 

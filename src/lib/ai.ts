@@ -181,3 +181,18 @@ export async function deleteReport(id: string): Promise<void> {
     throw new Error(error.message);
   }
 }
+export async function fetchReport(id: string): Promise<Report | null> {
+  const { data, error } = await supabase
+    .from('reports')
+    .select(
+      'id, user_id, original_text, ai_response, created_at'
+    )
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as Report | null;
+}
